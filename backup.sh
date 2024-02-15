@@ -7,6 +7,8 @@ mount_dir_tarjeta="/mnt/tarjeta"
 # Desmontamos posibles unidades
 sudo umount "$mount_dir_disco" 2> /dev/null
 sudo umount "$mount_dir_tarjeta" 2> /dev/null
+sudo umount /dev/sdb1
+sudo umount /dev/sda1
 
 # Tamaño mínimo de la partición de disco en GB
 min_size_gb=900
@@ -20,8 +22,9 @@ if [ ! -d "$mount_dir_tarjeta" ]; then
     sudo mkdir -p "$mount_dir_tarjeta"
 fi
 
+echo "Obteniendo lista de dispositivos"
 # Obtener una lista de dispositivos
-devices=$(lsblk -o NAME,FSTYPE,SIZE,MOUNTPOINTS -lnpb -I 8,9,179,253)
+devices=$(lsblk -o NAME,FSTYPE,SIZE,MOUNTPOINT -lnpb -I 8,9,179,253)
 
 # Iterar sobre la lista de dispositivos
 while IFS= read -r line; do
@@ -32,14 +35,17 @@ while IFS= read -r line; do
     mountpoint=$(echo "$line" | awk '{print $4}')
 
     # Verificar si el dispositivo tiene un sistema de archivos NTFS y el tamaño es mayor que 900 GB
-    if [ "$fstype" == "ntfs" ] && [ "$size_gb" -gt "$min_size_gb" ]; then
+    if [ "$fstype" == "vfat" ] && [ "$size_gb" -gt "$min_size_gb" ]; then
         # Montar el dispositivo en el directorio especificado
-        sudo mount -t ntfs "$device" "$mount_dir_disco"
+        sudo umount "$device"
+        sleep 2
+        sudo mount -t vfat -w "$device" "$mount_dir_disco"
         echo "Disco NTFS de más de $min_size_gb GB montado en $mount_dir_disco"
     fi
 
-    # Verificar si el dispositivo tiene un sistema de archivos vfat y no está montado
+    # Verificar si el dispositivo tiene un sistema de archivos vfat
     if [ "$fstype" == "vfat" ] && [ "$mountpoint" == "" ]; then
+        echo "Intentado montar tarjeta"
         # Montar el dispositivo en el directorio especificado
         sudo mount -t vfat "$device" "$mount_dir_tarjeta"
         echo "Dispositivo $device montado en $mount_dir_tarjeta"
@@ -47,6 +53,7 @@ while IFS= read -r line; do
 
 done <<< "$devices"
 
+echo "Comprobar que existe directorio /mnt/disco/backupsd"
 # Comprobamos que en el disco existe el directorio backup
 if [ ! -d "/mnt/disco/backupsd" ]; then
     echo "No existe el directorio backupsd en disco. Imposible continuar"
@@ -63,3 +70,5 @@ mkdir "$dir_destino"
 # Copiamos contenido tarjeta SD a directorio Backup
 echo "Copiando a $dir_destino ..."
 cp /mnt/tarjeta/DCIM/* "$dir_destino" -r
+echo "Terminado"
+sleep 5

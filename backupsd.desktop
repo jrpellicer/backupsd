@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Terminal=true
+Name=Backup
+Exec=sudo /home/pi/backupsd/backup.sh
+
